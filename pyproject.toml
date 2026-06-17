@@ -1,0 +1,21 @@
+[project]
+name = "autorotate"
+version = "0.1.0"
+description = "Batch auto-rotate images using local visual analysis."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "onnxruntime",
+    "opencv-python",
+    "pillow",
+    "typer",
+    "rich",
+]
+
+[project.scripts]
+autorotate = "autorotate.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
