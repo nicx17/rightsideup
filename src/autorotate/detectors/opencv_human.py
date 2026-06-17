@@ -71,7 +71,7 @@ def get_hog_people_detector() -> cv2.HOGDescriptor:
     if HOG_PEOPLE_DETECTOR is None:
         HOG_PEOPLE_DETECTOR = cv2.HOGDescriptor()
         HOG_PEOPLE_DETECTOR.setSVMDetector(  # type: ignore[reportAttributeAccessIssue]
-            cv2.HOGDescriptor_getDefaultPeopleDetector()
+            cv2.HOGDescriptor_getDefaultPeopleDetector()  # type: ignore[reportAttributeAccessIssue]
         )
     return HOG_PEOPLE_DETECTOR
 
