@@ -9,6 +9,7 @@ from PIL import Image
 from autorotate.types import SUPPORTED_EXTENSIONS, JPEG_EXTENSIONS, EXIF_ORIENTATION_TAG
 from autorotate.utils import normalize_rotation
 
+
 def iter_images(paths: Iterable[Path], recursive: bool) -> list[Path]:
     files: list[Path] = []
     for path in paths:
@@ -23,6 +24,7 @@ def iter_images(paths: Iterable[Path], recursive: bool) -> list[Path]:
             files.append(path)
     return sorted(dict.fromkeys(files))
 
+
 def output_path_for(source: Path, output_dir: Path | None, roots: list[Path]) -> Path:
     if output_dir is None:
         return source
@@ -34,16 +36,19 @@ def output_path_for(source: Path, output_dir: Path | None, roots: list[Path]) ->
         return output_dir / source.name
     return output_dir / source.relative_to(parent_root)
 
+
 def ensure_can_write(destination: Path, overwrite: bool) -> None:
     if destination.exists() and not overwrite:
         raise FileExistsError(f"{destination} already exists; pass --overwrite")
     destination.parent.mkdir(parents=True, exist_ok=True)
+
 
 def exif_orientation(image: Image.Image) -> int:
     try:
         return int(image.getexif().get(EXIF_ORIENTATION_TAG, 1))
     except (AttributeError, TypeError, ValueError):
         return 1
+
 
 def reset_exif_orientation(path: Path) -> None:
     if shutil.which("exiftool") is None:
@@ -55,7 +60,10 @@ def reset_exif_orientation(path: Path) -> None:
         check=False,
     )
 
-def lossless_jpeg_rotate(source: Path, destination: Path, degrees: int, overwrite: bool) -> bool:
+
+def lossless_jpeg_rotate(
+    source: Path, destination: Path, degrees: int, overwrite: bool
+) -> bool:
     if source.suffix.lower() not in JPEG_EXTENSIONS or shutil.which("jpegtran") is None:
         return False
     degrees = normalize_rotation(degrees)
@@ -97,13 +105,17 @@ def lossless_jpeg_rotate(source: Path, destination: Path, degrees: int, overwrit
             temp_target.unlink()
         return False
 
+
 def copy_original(source: Path, destination: Path, overwrite: bool) -> None:
     if source.resolve() == destination.resolve():
         return
     ensure_can_write(destination, overwrite)
     shutil.copy2(source, destination)
 
-def save_image(image: Image.Image, destination: Path, overwrite: bool, quality: int) -> None:
+
+def save_image(
+    image: Image.Image, destination: Path, overwrite: bool, quality: int
+) -> None:
     ensure_can_write(destination, overwrite)
     save_kwargs: dict[str, Any] = {}
     suffix = destination.suffix.lower()

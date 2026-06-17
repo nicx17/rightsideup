@@ -5,6 +5,7 @@ from PIL import Image
 from autorotate.types import OrientationDecision
 from autorotate.utils import pil_to_cv_gray, rotate_pil_clockwise
 
+
 def line_projection_score(gray: np.ndarray) -> float:
     h, w = gray.shape[:2]
     scale = min(1.0, 1200.0 / max(h, w))
@@ -49,7 +50,10 @@ def line_projection_score(gray: np.ndarray) -> float:
 
     return horizontal_weight - vertical_weight + projection_bias * 20
 
-def opencv_sideways_orientation(image: Image.Image, min_delta: float) -> OrientationDecision:
+
+def opencv_sideways_orientation(
+    image: Image.Image, min_delta: float
+) -> OrientationDecision:
     scores: dict[int, float] = {}
     for degrees in (0, 90, 270):
         candidate = rotate_pil_clockwise(image, degrees)
@@ -61,5 +65,5 @@ def opencv_sideways_orientation(image: Image.Image, min_delta: float) -> Orienta
     if best_angle != 0 and delta >= min_delta:
         return OrientationDecision(best_angle, delta, "opencv-lines")
     return OrientationDecision(
-        0, max(0.0, delta), "opencv-lines", "no confident rotation"
+        0, max(0.0, delta), "opencv-lines", "no confident rotation", is_confident=False
     )

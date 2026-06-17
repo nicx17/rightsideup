@@ -15,12 +15,15 @@ JPEG_EXTENSIONS = {".jpg", ".jpeg"}
 EXIF_ORIENTATION_TAG = 274
 DEFAULT_YOLO_MODEL = Path("models/yolo11m-pose.onnx")
 
+
 @dataclasses.dataclass(frozen=True)
 class OrientationDecision:
     rotate_clockwise: int
     confidence: float
     method: str
     note: str = ""
+    is_confident: bool = True
+
 
 @dataclasses.dataclass(frozen=True)
 class YoloOnnxModel:

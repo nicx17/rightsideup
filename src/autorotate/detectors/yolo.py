@@ -9,6 +9,7 @@ from autorotate.utils import rotate_pil_clockwise, tensor_to_numpy
 
 YOLO_MODEL_CACHE: dict[Path, Any] = {}
 
+
 def load_yolo_model(model_path: Path) -> YoloOnnxModel:
     resolved = model_path.expanduser().resolve()
     if resolved in YOLO_MODEL_CACHE:
@@ -39,6 +40,7 @@ def load_yolo_model(model_path: Path) -> YoloOnnxModel:
     YOLO_MODEL_CACHE[resolved] = model
     return model
 
+
 def yolo_preprocess(image: Image.Image, input_size: int) -> np.ndarray:
     rgb = np.array(image.convert("RGB"))
     h, w = rgb.shape[:2]
@@ -53,6 +55,7 @@ def yolo_preprocess(image: Image.Image, input_size: int) -> np.ndarray:
     blob = canvas.astype(np.float32) / 255.0
     return np.transpose(blob, (2, 0, 1))[None, ...]
 
+
 def yolo_prediction_rows(output: np.ndarray) -> np.ndarray:
     predictions = np.squeeze(output)
     if predictions.ndim != 2:
@@ -61,7 +64,10 @@ def yolo_prediction_rows(output: np.ndarray) -> np.ndarray:
         predictions = predictions.T
     return predictions
 
-def yolo_pose_rows(output: np.ndarray, confidence: float) -> list[tuple[float, np.ndarray]]:
+
+def yolo_pose_rows(
+    output: np.ndarray, confidence: float
+) -> list[tuple[float, np.ndarray]]:
     rows = yolo_prediction_rows(output)
     if rows.size == 0:
         return []
@@ -81,7 +87,10 @@ def yolo_pose_rows(output: np.ndarray, confidence: float) -> list[tuple[float, n
         detections.append((box_confidence, keypoints))
     return detections
 
-def keypoint_point(keypoints: np.ndarray, index: int, min_confidence: float) -> tuple[float, float] | None:
+
+def keypoint_point(
+    keypoints: np.ndarray, index: int, min_confidence: float
+) -> tuple[float, float] | None:
     if keypoints.shape[0] <= index or keypoints.shape[1] < 3:
         return None
     x, y, confidence = keypoints[index][:3]
@@ -89,14 +98,23 @@ def keypoint_point(keypoints: np.ndarray, index: int, min_confidence: float) -> 
         return None
     return float(x), float(y)
 
-def average_points(points: list[tuple[float, float] | None]) -> tuple[float, float] | None:
+
+def average_points(
+    points: list[tuple[float, float] | None],
+) -> tuple[float, float] | None:
     valid = [point for point in points if point is not None]
     if not valid:
         return None
     xs, ys = zip(*valid, strict=False)
     return float(np.mean(xs)), float(np.mean(ys))
 
-def vertical_order_score(upper: tuple[float, float] | None, lower: tuple[float, float] | None, expected_gap: float, weight: float) -> float:
+
+def vertical_order_score(
+    upper: tuple[float, float] | None,
+    lower: tuple[float, float] | None,
+    expected_gap: float,
+    weight: float,
+) -> float:
     if upper is None or lower is None:
         return 0.0
     gap = lower[1] - upper[1]
@@ -104,7 +122,13 @@ def vertical_order_score(upper: tuple[float, float] | None, lower: tuple[float, 
         return -weight
     return min(gap / max(expected_gap, 1.0), 1.5) * weight
 
-def pair_level_score(left: tuple[float, float] | None, right: tuple[float, float] | None, expected_width: float, weight: float) -> float:
+
+def pair_level_score(
+    left: tuple[float, float] | None,
+    right: tuple[float, float] | None,
+    expected_width: float,
+    weight: float,
+) -> float:
     if left is None or right is None:
         return 0.0
     dx = abs(right[0] - left[0])
@@ -114,7 +138,10 @@ def pair_level_score(left: tuple[float, float] | None, right: tuple[float, float
     tilt = dy / max(dx, 1.0)
     return max(0.0, 1.0 - tilt) * weight
 
-def yolo_person_score(keypoints: np.ndarray, image_height: int, box_confidence: float) -> float:
+
+def yolo_person_score(
+    keypoints: np.ndarray, image_height: int, box_confidence: float
+) -> float:
     min_kpt_conf = 0.25
     nose = keypoint_point(keypoints, 0, min_kpt_conf)
     left_eye = keypoint_point(keypoints, 1, min_kpt_conf)
@@ -134,7 +161,9 @@ def yolo_person_score(keypoints: np.ndarray, image_height: int, box_confidence: 
     knees = average_points([left_knee, right_knee])
     ankles = average_points([left_ankle, right_ankle])
 
-    visible = sum(float(point[2] >= min_kpt_conf) for point in keypoints if len(point) >= 3)
+    visible = sum(
+        float(point[2] >= min_kpt_conf) for point in keypoints if len(point) >= 3
+    )
     expected_gap = max(image_height * 0.08, 20.0)
     expected_width = max(image_height * 0.05, 15.0)
 
@@ -149,7 +178,10 @@ def yolo_person_score(keypoints: np.ndarray, image_height: int, box_confidence: 
     score += pair_level_score(left_hip, right_hip, expected_width, 10)
     return score
 
-def yolo_pose_score(image: Image.Image, model: YoloOnnxModel, confidence: float) -> float:
+
+def yolo_pose_score(
+    image: Image.Image, model: YoloOnnxModel, confidence: float
+) -> float:
     blob = yolo_preprocess(image, model.input_size)
     outputs = model.session.run(None, {model.input_name: blob})
     detections = yolo_pose_rows(tensor_to_numpy(outputs[0]), confidence)
@@ -159,7 +191,14 @@ def yolo_pose_score(image: Image.Image, model: YoloOnnxModel, confidence: float)
     ]
     return float(max(scores, default=0.0))
 
-def yolo_orientation(image: Image.Image, model_path: Path, confidence: float, min_score: float, min_margin: float) -> OrientationDecision:
+
+def yolo_orientation(
+    image: Image.Image,
+    model_path: Path,
+    confidence: float,
+    min_score: float,
+    min_margin: float,
+) -> OrientationDecision:
     model = load_yolo_model(model_path)
     scores: dict[int, float] = {}
     for degrees in (0, 90, 180, 270):
@@ -176,4 +215,6 @@ def yolo_orientation(image: Image.Image, model_path: Path, confidence: float, mi
             "yolo-pose",
             f"score={best_score:.2f}, next={second_score:.2f}",
         )
-    return OrientationDecision(0, margin, "yolo-pose", "no confident YOLO orientation")
+    return OrientationDecision(
+        0, margin, "yolo-pose", "no confident YOLO orientation", is_confident=False
+    )

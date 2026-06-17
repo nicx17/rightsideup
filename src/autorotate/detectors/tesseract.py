@@ -6,7 +6,10 @@ from PIL import Image
 from autorotate.types import OrientationDecision
 from autorotate.utils import normalize_rotation
 
-def tesseract_osd(image: Image.Image, min_confidence: float) -> OrientationDecision | None:
+
+def tesseract_osd(
+    image: Image.Image, min_confidence: float
+) -> OrientationDecision | None:
     if shutil.which("tesseract") is None:
         return None
 

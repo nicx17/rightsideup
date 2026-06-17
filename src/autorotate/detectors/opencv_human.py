@@ -9,6 +9,7 @@ from autorotate.utils import prepare_gray, rotate_pil_clockwise
 CASCADE_CACHE: dict[str, cv2.CascadeClassifier | None] = {}
 HOG_PEOPLE_DETECTOR: cv2.HOGDescriptor | None = None
 
+
 def load_haar(name: str) -> cv2.CascadeClassifier | None:
     if name in CASCADE_CACHE:
         return CASCADE_CACHE[name]
@@ -36,7 +37,15 @@ def load_haar(name: str) -> cv2.CascadeClassifier | None:
     CASCADE_CACHE[name] = None
     return None
 
-def detect_objects(gray: np.ndarray, cascade_name: str, *, scale_factor: float = 1.08, min_neighbors: int = 5, min_size: tuple[int, int] = (30, 30)) -> list[tuple[int, int, int, int]]:
+
+def detect_objects(
+    gray: np.ndarray,
+    cascade_name: str,
+    *,
+    scale_factor: float = 1.08,
+    min_neighbors: int = 5,
+    min_size: tuple[int, int] = (30, 30),
+) -> list[tuple[int, int, int, int]]:
     detector = load_haar(cascade_name)
     if detector is None:
         return []
@@ -48,10 +57,14 @@ def detect_objects(gray: np.ndarray, cascade_name: str, *, scale_factor: float =
     )
     return [(int(x), int(y), int(w), int(h)) for x, y, w, h in objects]
 
-def largest_area_ratio(boxes: list[tuple[int, int, int, int]], image_area: int) -> float:
+
+def largest_area_ratio(
+    boxes: list[tuple[int, int, int, int]], image_area: int
+) -> float:
     if not boxes or image_area <= 0:
         return 0.0
     return max((w * h) / image_area for _, _, w, h in boxes)
+
 
 def get_hog_people_detector() -> cv2.HOGDescriptor:
     global HOG_PEOPLE_DETECTOR
@@ -61,6 +74,7 @@ def get_hog_people_detector() -> cv2.HOGDescriptor:
             cv2.HOGDescriptor_getDefaultPeopleDetector()
         )
     return HOG_PEOPLE_DETECTOR
+
 
 def hog_people(gray: np.ndarray) -> list[tuple[int, int, int, int]]:
     detector = get_hog_people_detector()
@@ -80,8 +94,11 @@ def hog_people(gray: np.ndarray) -> list[tuple[int, int, int, int]]:
             detections.append((int(x), int(y), int(w), int(h)))
     return detections
 
+
 def eye_bonus(gray: np.ndarray, faces: list[tuple[int, int, int, int]]) -> float:
-    eye_detector = load_haar("haarcascade_eye.xml") or load_haar("haarcascade_eye_tree_eyeglasses.xml")
+    eye_detector = load_haar("haarcascade_eye.xml") or load_haar(
+        "haarcascade_eye_tree_eyeglasses.xml"
+    )
     if eye_detector is None:
         return 0.0
 
@@ -96,6 +113,7 @@ def eye_bonus(gray: np.ndarray, faces: list[tuple[int, int, int, int]]) -> float
         )
         bonus += min(len(eyes), 2) * 8
     return bonus
+
 
 def profile_faces(gray: np.ndarray) -> list[tuple[int, int, int, int]]:
     direct = detect_objects(
@@ -116,6 +134,7 @@ def profile_faces(gray: np.ndarray) -> list[tuple[int, int, int, int]]:
     width = gray.shape[1]
     mirrored = [(width - x - w, y, w, h) for x, y, w, h in mirrored]
     return direct + mirrored
+
 
 def human_score(gray: np.ndarray) -> float:
     image_area = gray.shape[0] * gray.shape[1]
@@ -165,7 +184,10 @@ def human_score(gray: np.ndarray) -> float:
     score += eye_bonus(gray, frontal_faces)
     return score
 
-def opencv_human_orientation(image: Image.Image, min_score: float, min_margin: float) -> OrientationDecision:
+
+def opencv_human_orientation(
+    image: Image.Image, min_score: float, min_margin: float
+) -> OrientationDecision:
     scores: dict[int, float] = {}
     for degrees in (0, 90, 180, 270):
         candidate = rotate_pil_clockwise(image, degrees)
@@ -181,4 +203,6 @@ def opencv_human_orientation(image: Image.Image, min_score: float, min_margin: f
             "opencv-human",
             f"score={best_score:.2f}, next={second_score:.2f}",
         )
-    return OrientationDecision(0, margin, "opencv-human", "no confident human orientation")
+    return OrientationDecision(
+        0, margin, "opencv-human", "no confident human orientation", is_confident=False
+    )

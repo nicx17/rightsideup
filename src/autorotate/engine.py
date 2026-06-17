@@ -8,6 +8,7 @@ from autorotate.detectors.yolo import yolo_orientation
 from autorotate.detectors.opencv_human import opencv_human_orientation
 from autorotate.detectors.opencv_lines import opencv_sideways_orientation
 
+
 def decide_orientation(
     image: Image.Image,
     mode: str,
@@ -32,11 +33,7 @@ def decide_orientation(
                     min_score=yolo_min_score,
                     min_margin=yolo_min_margin,
                 )
-                if (
-                    backend == "yolo"
-                    or decision.rotate_clockwise != 0
-                    or not decision.note
-                ):
+                if backend == "yolo" or decision.is_confident:
                     return decision
             except (FileNotFoundError, RuntimeError) as exc:
                 if backend == "yolo":
@@ -46,7 +43,7 @@ def decide_orientation(
                 yolo_note = "no confident YOLO orientation"
 
         decision = opencv_human_orientation(image, human_min_score, human_min_margin)
-        if decision.rotate_clockwise != 0 or not decision.note:
+        if decision.is_confident:
             return decision
         if mode == "photo":
             if backend == "auto":
@@ -61,4 +58,4 @@ def decide_orientation(
             return decision
         return opencv_sideways_orientation(image, line_min_delta)
 
-    return OrientationDecision(0, 0, "none", "no detector enabled")
+    return OrientationDecision(0, 0, "none", "no detector enabled", is_confident=False)
