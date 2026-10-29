@@ -5,6 +5,7 @@ from typing import Annotated
 import typer
 from PIL import Image, ImageOps
 from rich.console import Console
+from rich.markup import escape
 
 from autorotate.engine import decide_orientation
 from autorotate.io import (
@@ -22,6 +23,15 @@ app = typer.Typer(
     help="Auto-rotate batches of images using local OpenCV/Tesseract analysis."
 )
 console = Console()
+
+
+def safe_text(value: object) -> str:
+    """Escape Rich markup and control characters in untrusted text like paths."""
+    text = "".join(
+        char if char.isprintable() else char.encode("unicode_escape").decode("ascii")
+        for char in str(value)
+    )
+    return escape(text)
 
 
 def process_file(
@@ -196,7 +206,9 @@ def main(
             )
         except ValueError as exc:
             failures += 1
-            console.print(f"[bold red]FAIL[/bold red] {source}: {exc}")
+            console.print(
+                f"[bold red]FAIL[/bold red] {safe_text(source)}: {safe_text(exc)}"
+            )
             continue
 
         _, decision, error = process_file(
@@ -219,13 +231,15 @@ def main(
         )
         if error:
             failures += 1
-            console.print(f"[bold red]FAIL[/bold red] {source}: {error}")
+            console.print(
+                f"[bold red]FAIL[/bold red] {safe_text(source)}: {safe_text(error)}"
+            )
             continue
 
-        action = "dry-run" if dry_run else str(destination)
-        note = f" ({decision.note})" if decision.note else ""
+        action = "dry-run" if dry_run else safe_text(destination)
+        note = f" ({safe_text(decision.note)})" if decision.note else ""
         console.print(
-            f"{source} -> rotate [cyan]{decision.rotate_clockwise:3d}[/cyan] deg "
+            f"{safe_text(source)} -> rotate [cyan]{decision.rotate_clockwise:3d}[/cyan] deg "
             f"[[green]{decision.method}[/green], confidence={decision.confidence:.2f}]{note} -> {action}"
         )
 
