@@ -1,7 +1,8 @@
+from typing import Any
+
 import cv2
 import numpy as np
 from PIL import Image
-from typing import Any
 
 
 def normalize_rotation(degrees: int) -> int:

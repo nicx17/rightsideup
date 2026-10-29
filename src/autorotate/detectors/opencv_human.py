@@ -1,9 +1,9 @@
+from pathlib import Path
+from typing import Any
+
 import cv2
 import numpy as np
-from pathlib import Path
 from PIL import Image
-
-from typing import Any
 
 from autorotate.types import OrientationDecision
 from autorotate.utils import prepare_gray, rotate_pil_clockwise
@@ -13,6 +13,8 @@ HOG_PEOPLE_DETECTOR: Any = None
 
 
 def load_haar(name: str) -> Any:
+    if "/" in name or "\\" in name or ".." in name:
+        return None
     cascade_cls = getattr(cv2, "CascadeClassifier", None)
     if cascade_cls is None:
         return None
@@ -33,7 +35,7 @@ def load_haar(name: str) -> Any:
     )
 
     for path in candidates:
-        if not path.exists():
+        if not path.is_file():
             continue
         classifier = cascade_cls(str(path))
         if not classifier.empty():
@@ -96,7 +98,6 @@ def hog_people(gray: np.ndarray) -> list[tuple[int, int, int, int]]:
         winStride=(8, 8),
         padding=(16, 16),
         scale=1.05,
-        finalThreshold=2,
     )
 
     detections: list[tuple[int, int, int, int]] = []

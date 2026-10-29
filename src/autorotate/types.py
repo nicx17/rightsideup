@@ -27,9 +27,7 @@ def _find_default_yolo_model() -> Path:
     if repo_model.is_file():
         return repo_model
     # Check standard user cache directory
-    cache_model = (
-        Path.home() / ".cache" / "autorotate" / "models" / "yolo11m-pose.onnx"
-    )
+    cache_model = Path.home() / ".cache" / "autorotate" / "models" / "yolo11m-pose.onnx"
     if cache_model.is_file():
         return cache_model
     return repo_model

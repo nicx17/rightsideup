@@ -1,12 +1,13 @@
 import dataclasses
 from pathlib import Path
+
 from PIL import Image
 
-from autorotate.types import OrientationDecision
-from autorotate.detectors.tesseract import tesseract_osd
-from autorotate.detectors.yolo import yolo_orientation
 from autorotate.detectors.opencv_human import opencv_human_orientation
 from autorotate.detectors.opencv_lines import opencv_sideways_orientation
+from autorotate.detectors.tesseract import tesseract_osd
+from autorotate.detectors.yolo import yolo_orientation
+from autorotate.types import OrientationDecision
 
 
 def decide_orientation(

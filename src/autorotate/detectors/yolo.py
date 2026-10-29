@@ -1,8 +1,10 @@
+import math
+from pathlib import Path
+from typing import Any
+
 import cv2
 import numpy as np
-from pathlib import Path
 from PIL import Image
-from typing import Any
 
 from autorotate.types import OrientationDecision, YoloOnnxModel
 from autorotate.utils import rotate_pil_clockwise, tensor_to_numpy
@@ -14,7 +16,7 @@ def load_yolo_model(model_path: Path) -> YoloOnnxModel:
     resolved = model_path.expanduser().resolve()
     if resolved in YOLO_MODEL_CACHE:
         return YOLO_MODEL_CACHE[resolved]
-    if not resolved.exists():
+    if not resolved.is_file():
         raise FileNotFoundError(
             f"YOLO model not found: {resolved}. Download yolo11m-pose.onnx into models/."
         )
@@ -26,7 +28,11 @@ def load_yolo_model(model_path: Path) -> YoloOnnxModel:
             ".venv/bin/python -m pip install onnxruntime"
         ) from exc
 
-    session = ort.InferenceSession(str(resolved), providers=["CPUExecutionProvider"])
+    session_options = ort.SessionOptions()
+    session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    session = ort.InferenceSession(
+        str(resolved), sess_options=session_options, providers=["CPUExecutionProvider"]
+    )
     model_input = session.get_inputs()[0]
     input_shape = model_input.shape
     input_size = 640
@@ -45,8 +51,8 @@ def yolo_preprocess(image: Image.Image, input_size: int) -> np.ndarray:
     rgb = np.array(image.convert("RGB"))
     h, w = rgb.shape[:2]
     scale = min(input_size / w, input_size / h)
-    new_w = int(round(w * scale))
-    new_h = int(round(h * scale))
+    new_w = round(w * scale)
+    new_h = round(h * scale)
     resized = cv2.resize(rgb, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
     canvas = np.full((input_size, input_size, 3), 114, dtype=np.uint8)
     pad_x = (input_size - new_w) // 2
@@ -81,7 +87,9 @@ def yolo_pose_rows(
         if row.shape[0] >= 57 and (row.shape[0] - 5) % 3 != 0:
             box_confidence = float(row[4] * row[5])
             keypoint_start = 6
-        if box_confidence < confidence:
+        if not math.isfinite(box_confidence) or box_confidence < confidence:
+            continue
+        if row.shape[0] < keypoint_start + 51:
             continue
         keypoints = row[keypoint_start : keypoint_start + 51].reshape(17, 3)
         detections.append((box_confidence, keypoints))
@@ -94,7 +102,9 @@ def keypoint_point(
     if keypoints.shape[0] <= index or keypoints.shape[1] < 3:
         return None
     x, y, confidence = keypoints[index][:3]
-    if float(confidence) < min_confidence:
+    if not math.isfinite(confidence) or float(confidence) < min_confidence:
+        return None
+    if not math.isfinite(x) or not math.isfinite(y):
         return None
     return float(x), float(y)
 
@@ -189,7 +199,8 @@ def yolo_pose_score(
         yolo_person_score(person_keypoints, model.input_size, box_confidence)
         for box_confidence, person_keypoints in detections
     ]
-    return float(max(scores, default=0.0))
+    valid_scores = [s for s in scores if math.isfinite(s)]
+    return float(max(valid_scores, default=0.0))
 
 
 def yolo_orientation(

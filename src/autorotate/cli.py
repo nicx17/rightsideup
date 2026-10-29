@@ -1,21 +1,21 @@
-import sys
-from pathlib import Path
-from typing import Annotated, Optional
 from enum import Enum
-import typer
-from rich.console import Console
-from PIL import Image, ImageOps
+from pathlib import Path
+from typing import Annotated
 
-from autorotate.types import DEFAULT_YOLO_MODEL, OrientationDecision
+import typer
+from PIL import Image, ImageOps
+from rich.console import Console
+
 from autorotate.engine import decide_orientation
 from autorotate.io import (
-    iter_images,
-    output_path_for,
-    exif_orientation,
-    lossless_jpeg_rotate,
     copy_original,
+    exif_orientation,
+    iter_images,
+    lossless_jpeg_rotate,
+    output_path_for,
     save_image,
 )
+from autorotate.types import DEFAULT_YOLO_MODEL, OrientationDecision
 from autorotate.utils import rotate_pil_clockwise
 
 app = typer.Typer(
@@ -43,6 +43,19 @@ def process_file(
     quality: int,
 ) -> tuple[Path, OrientationDecision, str | None]:
     try:
+        if not source.is_file():
+            return (
+                source,
+                OrientationDecision(0, 0, "error"),
+                f"{source} is not a regular file",
+            )
+        if in_place and source.is_symlink():
+            return (
+                source,
+                OrientationDecision(0, 0, "error"),
+                f"Refusing to modify symlink in-place: {source}",
+            )
+
         with Image.open(source) as opened:
             source_exif_orientation = exif_orientation(opened)
             image = ImageOps.exif_transpose(opened)
@@ -101,7 +114,7 @@ def main(
         list[Path], typer.Argument(help="Image files or directories to process.")
     ],
     output_dir: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("-o", "--output-dir", help="Directory for rotated images."),
     ] = None,
     in_place: Annotated[
@@ -161,6 +174,7 @@ def main(
         int, typer.Option("--quality", help="JPEG output quality.")
     ] = 100,
 ) -> None:
+    """Auto-rotate batches of images using local OpenCV/Tesseract analysis."""
     if not in_place and output_dir is None and not dry_run:
         console.print(
             "[bold red]error:[/bold red] use --in-place, --output-dir, or --dry-run",
@@ -168,7 +182,7 @@ def main(
         )
         raise typer.Exit(code=2)
 
-    roots = [path.resolve() for path in inputs]
+    roots = [path.absolute() for path in inputs]
     files = iter_images(roots, recursive=recursive)
     if not files:
         console.print("No supported images found.", style="yellow")
@@ -176,9 +190,15 @@ def main(
 
     failures = 0
     for source in files:
-        destination = output_path_for(
-            source, output_dir.resolve() if output_dir else None, roots
-        )
+        try:
+            destination = output_path_for(
+                source, output_dir.resolve() if output_dir else None, roots
+            )
+        except ValueError as exc:
+            failures += 1
+            console.print(f"[bold red]FAIL[/bold red] {source}: {exc}")
+            continue
+
         _, decision, error = process_file(
             source,
             destination,

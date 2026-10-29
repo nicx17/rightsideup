@@ -1,9 +1,9 @@
-from collections.abc import Iterable
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Iterable
+from pathlib import Path
 from typing import Any
 
 from PIL import Image
@@ -19,7 +19,10 @@ def iter_images(paths: Iterable[Path], recursive: bool) -> list[Path]:
             resolved_dir = path.resolve()
             iterator = path.rglob("*") if recursive else path.iterdir()
             for item in iterator:
-                if not item.is_file() or item.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                if (
+                    not item.is_file()
+                    or item.suffix.lower() not in SUPPORTED_EXTENSIONS
+                ):
                     continue
                 # If item is a symlink, prevent symlink traversal outside the search root
                 if item.is_symlink():
@@ -82,7 +85,13 @@ def reset_exif_orientation(path: Path) -> None:
         return
     try:
         subprocess.run(
-            [exiftool_bin, "-overwrite_original", "-Orientation=1", "--", str(path.resolve())],
+            [
+                exiftool_bin,
+                "-overwrite_original",
+                "-Orientation=1",
+                "--",
+                str(path.resolve()),
+            ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             check=False,

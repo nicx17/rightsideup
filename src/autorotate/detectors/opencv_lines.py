@@ -1,3 +1,5 @@
+import math
+
 import cv2
 import numpy as np
 from PIL import Image
@@ -34,7 +36,7 @@ def line_projection_score(gray: np.ndarray) -> float:
             dx = float(x2 - x1)
             dy = float(y2 - y1)
             length = float(np.hypot(dx, dy))
-            if length <= 0:
+            if length <= 0 or not math.isfinite(length):
                 continue
             angle = abs(np.degrees(np.arctan2(dy, dx)))
             angle = min(angle, 180 - angle)
@@ -47,6 +49,8 @@ def line_projection_score(gray: np.ndarray) -> float:
     row_density = binary.mean(axis=1)
     col_density = binary.mean(axis=0)
     projection_bias = float(row_density.var() - col_density.var())
+    if not math.isfinite(projection_bias):
+        projection_bias = 0.0
 
     return horizontal_weight - vertical_weight + projection_bias * 20
 
@@ -65,5 +69,9 @@ def opencv_sideways_orientation(
     if best_angle != 0 and delta >= min_delta:
         return OrientationDecision(best_angle, delta, "opencv-lines")
     return OrientationDecision(
-        0, max(0.0, delta), "opencv-lines", "no confident rotation", is_confident=False
+        0,
+        max(0.0, delta) if math.isfinite(delta) else 0.0,
+        "opencv-lines",
+        "no confident rotation",
+        is_confident=False,
     )
