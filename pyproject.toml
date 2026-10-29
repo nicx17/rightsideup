@@ -3,12 +3,12 @@ name = "autorotate"
 version = "0.1.0"
 description = "Batch auto-rotate images using local visual analysis."
 readme = "README.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.12,<3.15"
 dependencies = [
-    "numpy",
+    "numpy>=2.5.4",
     "onnxruntime",
     "opencv-python",
-    "pillow",
+    "pillow>=13.0.0",
     "typer",
     "rich",
 ]
