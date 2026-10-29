@@ -1,9 +1,9 @@
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
 import tempfile
-from pathlib import Path
 
 from PIL import Image
 
@@ -24,7 +24,7 @@ def tesseract_osd(
 
     try:
         image.convert("RGB").save(temp_path)
-        proc = subprocess.run(
+        proc = subprocess.run(  # noqa: S603
             [tesseract_bin, str(temp_path), "stdout", "--psm", "0"],
             text=True,
             capture_output=True,
