@@ -64,6 +64,33 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(result.exit_code, 1)
         self.assertIn("Refusing to modify symlink in-place", result.output)
 
+    def test_cli_markup_in_path_does_not_abort_batch(self) -> None:
+        # A directory named "[" makes the printed path contain "[/red]".
+        markup_dir = self.base_path / "["
+        markup_dir.mkdir()
+        Image.new("RGB", (20, 20)).save(markup_dir / "red].jpg")
+        Image.new("RGB", (20, 20)).save(self.base_path / "after.jpg")
+
+        result = self.runner.invoke(
+            app,
+            [str(self.base_path), "-r", "--dry-run", "--backend", "opencv"],
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("[/red].jpg", result.output)
+        self.assertIn("after.jpg", result.output)
+        self.assertEqual(result.output.count("dry-run"), 2)
+
+    def test_cli_does_not_print_terminal_escape_sequences(self) -> None:
+        img_path = self.base_path / "a\x1b]0;title\x07\x1b[2Jb.jpg"
+        Image.new("RGB", (20, 20)).save(img_path)
+
+        result = self.runner.invoke(
+            app, [str(img_path), "--dry-run", "--backend", "opencv"]
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertNotIn("\x1b", result.output)
+        self.assertNotIn("\x07", result.output)
+
 
 if __name__ == "__main__":
     unittest.main()
