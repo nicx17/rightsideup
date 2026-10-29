@@ -3,14 +3,19 @@ import numpy as np
 from pathlib import Path
 from PIL import Image
 
+from typing import Any
+
 from autorotate.types import OrientationDecision
 from autorotate.utils import prepare_gray, rotate_pil_clockwise
 
-CASCADE_CACHE: dict[str, cv2.CascadeClassifier | None] = {}
-HOG_PEOPLE_DETECTOR: cv2.HOGDescriptor | None = None
+CASCADE_CACHE: dict[str, Any] = {}
+HOG_PEOPLE_DETECTOR: Any = None
 
 
-def load_haar(name: str) -> cv2.CascadeClassifier | None:
+def load_haar(name: str) -> Any:
+    cascade_cls = getattr(cv2, "CascadeClassifier", None)
+    if cascade_cls is None:
+        return None
     if name in CASCADE_CACHE:
         return CASCADE_CACHE[name]
 
@@ -30,7 +35,7 @@ def load_haar(name: str) -> cv2.CascadeClassifier | None:
     for path in candidates:
         if not path.exists():
             continue
-        classifier = cv2.CascadeClassifier(str(path))
+        classifier = cascade_cls(str(path))
         if not classifier.empty():
             CASCADE_CACHE[name] = classifier
             return classifier
@@ -66,19 +71,26 @@ def largest_area_ratio(
     return max((w * h) / image_area for _, _, w, h in boxes)
 
 
-def get_hog_people_detector() -> cv2.HOGDescriptor:
+def get_hog_people_detector() -> Any:
     global HOG_PEOPLE_DETECTOR
+    hog_cls = getattr(cv2, "HOGDescriptor", None)
+    if hog_cls is None:
+        return None
     if HOG_PEOPLE_DETECTOR is None:
-        HOG_PEOPLE_DETECTOR = cv2.HOGDescriptor()
-        HOG_PEOPLE_DETECTOR.setSVMDetector(  # type: ignore[reportAttributeAccessIssue]
-            cv2.HOGDescriptor_getDefaultPeopleDetector()  # type: ignore[reportAttributeAccessIssue]
+        HOG_PEOPLE_DETECTOR = hog_cls()
+        default_detector_fn = getattr(
+            cv2, "HOGDescriptor_getDefaultPeopleDetector", None
         )
+        if default_detector_fn is not None:
+            HOG_PEOPLE_DETECTOR.setSVMDetector(default_detector_fn())
     return HOG_PEOPLE_DETECTOR
 
 
 def hog_people(gray: np.ndarray) -> list[tuple[int, int, int, int]]:
     detector = get_hog_people_detector()
-    boxes, weights = detector.detectMultiScale(  # type: ignore[reportCallIssue]
+    if detector is None:
+        return []
+    boxes, weights = detector.detectMultiScale(
         gray,
         hitThreshold=0,
         winStride=(8, 8),
